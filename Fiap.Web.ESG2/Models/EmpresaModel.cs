@@ -21,9 +21,8 @@ namespace Fiap.Web.ESG2.Models
         public string Setor { get; set; }
 
         public ICollection<CompensacaoCarbonoModel> CompensacoesCarbono { get; set; }
-        public ICollection<HistoricoEmissoesModel> HistoricoEmissoes { get; set; }
+        public ICollection<HistoricoEmissaoModel> HistoricoEmissoes { get; set; }
         public ICollection<RelotorioEmissaoModel> RelatoriosEmissao { get; set; }
     }
 }
-    }
-}
+ 
