@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Fiap.Web.ESG2.Models
@@ -10,8 +11,9 @@ namespace Fiap.Web.ESG2.Models
         [Column("id")]
         public long Id { get; set; }
 
+        [Required]
         [Column("tipo_iniciativa")]
-        public string TipoIniciativa { get; set; }
+        public string TipoIniciativa { get; set; } = string.Empty;
 
         [Column("quantidade_compensada")]
         public double QuantidadeCompensada { get; set; }
@@ -19,10 +21,10 @@ namespace Fiap.Web.ESG2.Models
         [Column("data_compensacao")]
         public DateTime DataCompensacao { get; set; }
 
-        [ForeignKey("Empresa")]
         [Column("empresa_id")]
-        public long EmpresaId { get; set; }
+        public long EmpresaId { get; set; }   // FK
 
-        public Empresa Empresa { get; set; }
+        [ForeignKey(nameof(EmpresaId))]
+        public EmpresaModel? Empresa { get; set; }  // Propriedade de navegação (NÃO chame de "EmpresaModel")
     }
 }

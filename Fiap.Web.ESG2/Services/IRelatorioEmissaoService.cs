@@ -4,10 +4,10 @@ namespace Fiap.Web.ESG2.Services
 {
     public interface IRelatorioEmissaoService
     {
-        IEnumerable<RelotorioEmissaoModel> ListarRelatorios();
-        RelotorioEmissaoModel ObterPorId(int id);
-        void Criar(RelotorioEmissaoModel relatorio);
-        void Atualizar(RelotorioEmissaoModel relatorio);
+        IEnumerable<RelatorioEmissaoModel> ListarRelatorios();
+        RelatorioEmissaoModel? ObterPorId(int id);
+        void Criar(RelatorioEmissaoModel relatorio);
+        void Atualizar(RelatorioEmissaoModel relatorio);
         void Deletar(int id);
     }
 }

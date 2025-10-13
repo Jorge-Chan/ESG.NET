@@ -1,5 +1,6 @@
 ﻿using Fiap.Web.ESG2.Data.Contexts;
 using Fiap.Web.ESG2.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace Fiap.Web.ESG2.Services
 {
@@ -12,17 +13,29 @@ namespace Fiap.Web.ESG2.Services
             _context = context;
         }
 
-        public IEnumerable<RelotorioEmissaoModel> ListarRelatorios() => _context.RelatoriosEmissao.ToList();
+        public IEnumerable<RelatorioEmissaoModel> ListarRelatorios()
+        {
+            return _context.RelatoriosEmissao
+                .Include(r => r.Empresa)
+                .AsNoTracking()
+                .ToList();
+        }
 
-        public RelotorioEmissaoModel ObterPorId(int id) => _context.RelatoriosEmissao.Find(id);
+        public RelatorioEmissaoModel? ObterPorId(int id)
+        {
+            return _context.RelatoriosEmissao
+                .Include(r => r.Empresa)
+                .AsNoTracking()
+                .FirstOrDefault(r => r.Id == id);
+        }
 
-        public void Criar(RelotorioEmissaoModel relatorio)
+        public void Criar(RelatorioEmissaoModel relatorio)
         {
             _context.RelatoriosEmissao.Add(relatorio);
             _context.SaveChanges();
         }
 
-        public void Atualizar(RelotorioEmissaoModel relatorio)
+        public void Atualizar(RelatorioEmissaoModel relatorio)
         {
             _context.RelatoriosEmissao.Update(relatorio);
             _context.SaveChanges();

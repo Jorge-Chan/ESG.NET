@@ -21,8 +21,8 @@ namespace Fiap.Web.ESG2.Test
                 .Returns(new List<RelotorioEmissaoModel>());
 
             var mockMapper = new Mock<IMapper>();
-            mockMapper.Setup(mapper => mapper.Map<IEnumerable<RelotorioEmissaoViewModel>>(It.IsAny<IEnumerable<RelotorioEmissaoModel>>()))
-                .Returns(new List<RelotorioEmissaoViewModel>());
+            mockMapper.Setup(mapper => mapper.Map<IEnumerable<RelatorioEmissaoViewModel>>(It.IsAny<IEnumerable<RelotorioEmissaoModel>>()))
+                .Returns(new List<RelatorioEmissaoViewModel>());
 
             var controller = new RelatorioEmissaoController(mockService.Object, mockMapper.Object);
 

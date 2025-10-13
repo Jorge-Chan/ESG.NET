@@ -1,68 +1,62 @@
-﻿using AutoMapper;
-using Fiap.Web.ESG2.Models;
-using Fiap.Web.ESG2.Services;
+﻿using Fiap.Web.ESG2.Services;
 using Fiap.Web.ESG2.ViewModels;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+
+// Alias para o tipo paginado
+using PagedUsuarios = Fiap.Web.ESG2.ViewModels.PagedResult<Fiap.Web.ESG2.Models.UsuarioModel>;
 
 namespace Fiap.Web.ESG2.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class UsuarioController : ControllerBase
+    [Authorize] // exige JWT
+    public class UsuariosController : ControllerBase
     {
-        private readonly IUsuarioService _service;
-        private readonly IMapper _mapper;
+        private readonly IUsuarioService _users;
 
-        public UsuarioController(IUsuarioService service, IMapper mapper)
-        {
-            _service = service;
-            _mapper = mapper;
-        }
+        public UsuariosController(IUsuarioService users) => _users = users;
 
         [HttpGet]
-        public ActionResult<IEnumerable<UsuarioViewModel>> Get()
+        [Authorize(Roles = "admin")]
+        public async Task<ActionResult<PagedUsuarios>> Get(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            CancellationToken ct = default)
         {
-            var usuarios = _service.ListarUsuarios();
-            var viewModelList = _mapper.Map<IEnumerable<UsuarioViewModel>>(usuarios);
-            return Ok(viewModelList);
+            var result = await _users.GetPagedAsync(page, pageSize, ct);
+            return Ok(result);
         }
 
-        [HttpGet("{id}")]
-        public ActionResult<UsuarioViewModel> Get(int id)
+        [HttpGet("{id:long}")]
+        [Authorize(Roles = "admin")]
+        public async Task<ActionResult<Fiap.Web.ESG2.Models.UsuarioModel>> GetById(long id, CancellationToken ct = default)
         {
-            var usuario = _service.ObterPorId(id);
-            if (usuario == null)
-                return NotFound();
-
-            var viewModel = _mapper.Map<UsuarioViewModel>(usuario);
-            return Ok(viewModel);
+            var user = await _users.GetByIdAsync(id, ct);
+            return user is null ? NotFound() : Ok(user);
         }
 
-        [HttpPost]
-        public ActionResult Post([FromBody] UsuarioViewModel viewModel)
+        [HttpPut("{id:long}")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> Update(long id, [FromBody] UpdateUserRequest req, CancellationToken ct = default)
         {
-            var usuario = _mapper.Map<UsuarioModel>(viewModel);
-            _service.Criar(usuario);
-            return CreatedAtAction(nameof(Get), new { id = usuario.UsuarioId }, viewModel);
+            var ok = await _users.UpdateAsync(id, req.Nome, req.Role, req.Ativo, ct);
+            return ok ? NoContent() : NotFound();
         }
 
-        [HttpPut("{id}")]
-        public ActionResult Put(int id, [FromBody] UsuarioViewModel viewModel)
+        [HttpPut("{id:long}/password")]
+        public async Task<IActionResult> ChangePassword(long id, [FromBody] ChangePasswordRequest req, CancellationToken ct = default)
         {
-            var existente = _service.ObterPorId(id);
-            if (existente == null)
-                return NotFound();
-
-            _mapper.Map(viewModel, existente);
-            _service.Atualizar(existente);
-            return NoContent();
+            var ok = await _users.ChangePasswordAsync(id, req.SenhaAtual, req.NovaSenha, ct);
+            return ok ? NoContent() : Unauthorized();
         }
 
-        [HttpDelete("{id}")]
-        public ActionResult Delete(int id)
+        [HttpDelete("{id:long}")]
+        [Authorize(Roles = "admin")]
+        public async Task<IActionResult> Delete(long id, CancellationToken ct = default)
         {
-            _service.Deletar(id);
-            return NoContent();
+            var ok = await _users.DeleteAsync(id, ct);
+            return ok ? NoContent() : NotFound();
         }
     }
 }

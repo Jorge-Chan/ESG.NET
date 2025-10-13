@@ -5,32 +5,32 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Fiap.Web.ESG2.Data.Repository
 {
-    public class RelotorioEmissaoRepository
+    public class RelatorioEmissaoRepository
     {
         private readonly DatabaseContext _context;
 
-        public RelotorioEmissaoRepository(DatabaseContext context)
+        public RelatorioEmissaoRepository(DatabaseContext context)
         {
             _context = context;
         }
 
-        public IEnumerable<RelotorioEmissaoModel> GetAll() => _context.RelatoriosEmissao.Include(r => r.Empresa).ToList();
+        public IEnumerable<RelatorioEmissaoModel> GetAll() => _context.RelatoriosEmissao.Include(r => r.Empresa).ToList();
 
-        public RelotorioEmissaoModel GetById(long id) => _context.RelatoriosEmissao.Find(id);
+        public RelatorioEmissaoModel GetById(long id) => _context.RelatoriosEmissao.Find(id);
 
-        public void Add(RelotorioEmissaoModel relatorio)
+        public void Add(RelatorioEmissaoModel relatorio)
         {
             _context.RelatoriosEmissao.Add(relatorio);
             _context.SaveChanges();
         }
 
-        public void Update(RelotorioEmissaoModel relatorio)
+        public void Update(RelatorioEmissaoModel relatorio)
         {
             _context.Update(relatorio);
             _context.SaveChanges();
         }
 
-        public void Delete(RelotorioEmissaoModel relatorio)
+        public void Delete(RelatorioEmissaoModel relatorio)
         {
             _context.RelatoriosEmissao.Remove(relatorio);
             _context.SaveChanges();

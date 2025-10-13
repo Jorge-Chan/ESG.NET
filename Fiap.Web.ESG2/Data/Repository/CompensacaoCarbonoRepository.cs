@@ -1,4 +1,5 @@
-﻿using Fiap.Web.ESG2.Data;
+﻿using System.Collections.Generic;
+using System.Linq;
 using Fiap.Web.ESG2.Data.Contexts;
 using Fiap.Web.ESG2.Models;
 using Microsoft.EntityFrameworkCore;
@@ -14,9 +15,15 @@ namespace Fiap.Web.ESG2.Data.Repository
             _context = context;
         }
 
-        public IEnumerable<CompensacaoCarbonoModel> GetAll() => _context.CompensacoesCarbono.Include(c => c.EmpresaModel).ToList();
+        // carrega também a Empresa (nome correto da navegação)
+        public IEnumerable<CompensacaoCarbonoModel> GetAll() =>
+            _context.CompensacoesCarbono
+                    .Include(c => c.Empresa)
+                    .ToList();
 
-        public CompensacaoCarbonoModel GetById(long id) => _context.CompensacoesCarbono.Find(id);
+        // se precisar da Empresa aqui também, troque para FirstOrDefault + Include
+        public CompensacaoCarbonoModel? GetById(long id) =>
+            _context.CompensacoesCarbono.Find(id);
 
         public void Add(CompensacaoCarbonoModel compensacao)
         {

@@ -1,10 +1,11 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Fiap.Web.ESG2.Models
 {
     [Table("relatorio_emissao")]
-    public class RelotorioEmissaoModel
+    public class RelatorioEmissaoModel
     {
         [Key]
         [Column("id")]
@@ -17,12 +18,12 @@ namespace Fiap.Web.ESG2.Models
         public double QuantidadeEmissao { get; set; }
 
         [Column("arquivo_pdf_url")]
-        public string ArquivoPdfUrl { get; set; }
+        public string ArquivoPdfUrl { get; set; } = string.Empty;
 
-        [ForeignKey("Empresa")]
         [Column("empresa_id")]
         public long EmpresaId { get; set; }
 
-        public EmpresaModel Empresa { get; set; }
+        [ForeignKey(nameof(EmpresaId))]
+        public EmpresaModel Empresa { get; set; } = null!;
     }
 }

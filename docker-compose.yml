@@ -1,0 +1,44 @@
+networks:
+  esg-net:
+
+volumes:
+  oracle-data:
+
+services:
+  db:
+    image: gvenzl/oracle-xe:21.3.0
+    container_name: esg-oracle
+    restart: unless-stopped
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-ChangeMe123!}
+      APP_USER: ${ORACLE_APP_USER:-ESGUSER}
+      APP_USER_PASSWORD: ${ORACLE_APP_PASS:-ESGPass123!}
+    ports:
+      - "1521:1521"
+    networks:
+      - esg-net
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+    # A imagem já tem HEALTHCHECK embutido
+
+  api:
+    build:
+      context: ./Fiap.Web.ESG2
+      dockerfile: Dockerfile
+    container_name: esg-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:8080
+      Jwt__Issuer: Fiap.Web.ESG2
+      Jwt__Audience: Fiap.Web.ESG2.Client
+      Jwt__Key: ${JWT_KEY:-dev-super-secret-key}
+      # EASY CONNECT apontando para o PDB correto
+      ConnectionStrings__DatabaseConnection: "User Id=${ORACLE_APP_USER:-ESGUSER};Password=${ORACLE_APP_PASS:-ESGPass123!};Data Source=db:1521/XEPDB1;"
+    networks:
+      - esg-net

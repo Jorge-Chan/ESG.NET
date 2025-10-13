@@ -2,12 +2,15 @@
 using Fiap.Web.ESG2.Models;
 using Fiap.Web.ESG2.Services;
 using Fiap.Web.ESG2.ViewModels;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Linq;
 
 namespace Fiap.Web.ESG2.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class HistoricoEmissaoController : ControllerBase
     {
         private readonly IHistoricoEmissaoService _service;
@@ -20,48 +23,64 @@ namespace Fiap.Web.ESG2.Controllers
         }
 
         [HttpGet]
-        public ActionResult<IEnumerable<HistoricoEmissoesViewModel>> Get()
+        [AllowAnonymous]
+        public ActionResult<IEnumerable<HistoricoEmissoesViewModel>> Get([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
-            var historicos = _service.ListarHistoricos();
-            var viewModelList = _mapper.Map<IEnumerable<HistoricoEmissoesViewModel>>(historicos);
-            return Ok(viewModelList);
+            page = page <= 0 ? 1 : page;
+            pageSize = pageSize <= 0 ? 10 : pageSize;
+
+            var all = _service.ListarHistoricos();
+            var total = all.Count();
+            var pageItems = all.Skip((page - 1) * pageSize).Take(pageSize);
+
+            Response.Headers["X-Total-Count"] = total.ToString();
+            Response.Headers["X-Page"] = page.ToString();
+            Response.Headers["X-Page-Size"] = pageSize.ToString();
+
+            var vms = _mapper.Map<IEnumerable<HistoricoEmissoesViewModel>>(pageItems);
+            return Ok(vms);
         }
 
-        [HttpGet("{id}")]
-        public ActionResult<HistoricoEmissoesViewModel> Get(int id)
+        [HttpGet("{id:long}")]
+        [AllowAnonymous]
+        public ActionResult<HistoricoEmissoesViewModel> GetById(long id)
         {
-            var historico = _service.ObterPorId(id);
-            if (historico == null)
-                return NotFound();
+            var historico = _service.ObterPorId((int)id); // << cast
+            if (historico == null) return NotFound();
 
-            var viewModel = _mapper.Map<HistoricoEmissoesViewModel>(historico);
-            return Ok(viewModel);
+            var vm = _mapper.Map<HistoricoEmissoesViewModel>(historico);
+            return Ok(vm);
         }
 
         [HttpPost]
+        [Authorize(Roles = "admin")]
         public ActionResult Post([FromBody] HistoricoEmissoesViewModel viewModel)
         {
-            var historico = _mapper.Map<HistoricoEmissaoModel>(viewModel);
-            _service.Criar(historico);
-            return CreatedAtAction(nameof(Get), new { id = historico.Id }, viewModel);
+            var entity = _mapper.Map<HistoricoEmissaoModel>(viewModel);
+            _service.Criar(entity);
+            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, _mapper.Map<HistoricoEmissoesViewModel>(entity));
         }
 
-        [HttpPut("{id}")]
-        public ActionResult Put(int id, [FromBody] HistoricoEmissoesViewModel viewModel)
+        [HttpPut("{id:long}")]
+        [Authorize(Roles = "admin")]
+        public ActionResult Put(long id, [FromBody] HistoricoEmissoesViewModel viewModel)
         {
-            var existente = _service.ObterPorId(id);
-            if (existente == null)
-                return NotFound();
+            var existente = _service.ObterPorId((int)id); // << cast
+            if (existente == null) return NotFound();
 
             _mapper.Map(viewModel, existente);
             _service.Atualizar(existente);
             return NoContent();
         }
 
-        [HttpDelete("{id}")]
-        public ActionResult Delete(int id)
+        [HttpDelete("{id:long}")]
+        [Authorize(Roles = "admin")]
+        public ActionResult Delete(long id)
         {
-            _service.Deletar(id);
+            var existente = _service.ObterPorId((int)id); // << cast
+            if (existente == null) return NotFound();
+
+            _service.Deletar((int)id); // << cast
             return NoContent();
         }
     }

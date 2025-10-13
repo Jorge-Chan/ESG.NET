@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Fiap.Web.ESG2.ViewModels
 {
-    public class RelotorioEmissaoViewModel
+    public class RelatorioEmissaoViewModel
     {
         public long Id { get; set; }
 

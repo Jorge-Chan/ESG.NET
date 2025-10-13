@@ -1,14 +1,16 @@
 ﻿using AutoMapper;
 using Fiap.Web.ESG2.Models;
 using Fiap.Web.ESG2.Services;
-using Fiap.Web.ESG2.ViewModel;
 using Fiap.Web.ESG2.ViewModels;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Linq;
 
 namespace Fiap.Web.ESG2.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class RelatorioEmissaoController : ControllerBase
     {
         private readonly IRelatorioEmissaoService _service;
@@ -21,48 +23,64 @@ namespace Fiap.Web.ESG2.Controllers
         }
 
         [HttpGet]
-        public ActionResult<IEnumerable<RelotorioEmissaoViewModel>> Get()
+        [AllowAnonymous]
+        public ActionResult<IEnumerable<RelatorioEmissaoViewModel>> Get([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
-            var relatorios = _service.ListarRelatorios();
-            var viewModelList = _mapper.Map<IEnumerable<RelotorioEmissaoViewModel>>(relatorios);
-            return Ok(viewModelList);
+            page = page <= 0 ? 1 : page;
+            pageSize = pageSize <= 0 ? 10 : pageSize;
+
+            var all = _service.ListarRelatorios();
+            var total = all.Count();
+            var pageItems = all.Skip((page - 1) * pageSize).Take(pageSize);
+
+            Response.Headers["X-Total-Count"] = total.ToString();
+            Response.Headers["X-Page"] = page.ToString();
+            Response.Headers["X-Page-Size"] = pageSize.ToString();
+
+            var vms = _mapper.Map<IEnumerable<RelatorioEmissaoViewModel>>(pageItems);
+            return Ok(vms);
         }
 
-        [HttpGet("{id}")]
-        public ActionResult<RelotorioEmissaoViewModel> Get(int id)
+        [HttpGet("{id:long}")]
+        [AllowAnonymous]
+        public ActionResult<RelatorioEmissaoViewModel> GetById(long id)
         {
-            var relatorio = _service.ObterPorId(id);
-            if (relatorio == null)
-                return NotFound();
+            var relatorio = _service.ObterPorId((int)id); // << cast
+            if (relatorio == null) return NotFound();
 
-            var viewModel = _mapper.Map<RelotorioEmissaoViewModel>(relatorio);
-            return Ok(viewModel);
+            var vm = _mapper.Map<RelatorioEmissaoViewModel>(relatorio);
+            return Ok(vm);
         }
 
         [HttpPost]
-        public ActionResult Post([FromBody] RelotorioEmissaoViewModel viewModel)
+        [Authorize(Roles = "admin")]
+        public ActionResult Post([FromBody] RelatorioEmissaoViewModel viewModel)
         {
-            var relatorio = _mapper.Map<RelotorioEmissaoModel>(viewModel);
-            _service.Criar(relatorio);
-            return CreatedAtAction(nameof(Get), new { id = relatorio.Id }, viewModel);
+            var entity = _mapper.Map<RelatorioEmissaoModel>(viewModel);
+            _service.Criar(entity);
+            return CreatedAtAction(nameof(GetById), new { id = entity.Id }, _mapper.Map<RelatorioEmissaoViewModel>(entity));
         }
 
-        [HttpPut("{id}")]
-        public ActionResult Put(int id, [FromBody] RelotorioEmissaoViewModel viewModel)
+        [HttpPut("{id:long}")]
+        [Authorize(Roles = "admin")]
+        public ActionResult Put(long id, [FromBody] RelatorioEmissaoViewModel viewModel)
         {
-            var existente = _service.ObterPorId(id);
-            if (existente == null)
-                return NotFound();
+            var existente = _service.ObterPorId((int)id); // << cast
+            if (existente == null) return NotFound();
 
             _mapper.Map(viewModel, existente);
             _service.Atualizar(existente);
             return NoContent();
         }
 
-        [HttpDelete("{id}")]
-        public ActionResult Delete(int id)
+        [HttpDelete("{id:long}")]
+        [Authorize(Roles = "admin")]
+        public ActionResult Delete(long id)
         {
-            _service.Deletar(id);
+            var existente = _service.ObterPorId((int)id); // << cast
+            if (existente == null) return NotFound();
+
+            _service.Deletar((int)id); // << cast
             return NoContent();
         }
     }
