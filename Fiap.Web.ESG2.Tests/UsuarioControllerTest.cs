@@ -1,36 +1,46 @@
-﻿using AutoMapper;
-using Fiap.Web.ESG2.Controllers;
-using Fiap.Web.ESG2.Models;
-using Fiap.Web.ESG2.Services;
-using Fiap.Web.ESG2.ViewModels;
+﻿using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using Fiap.Web.ESG2.Controllers;          // UsuariosController
+using Fiap.Web.ESG2.Models;               // UsuarioModel
+using Fiap.Web.ESG2.Services;             // IUsuarioService
+using Fiap.Web.ESG2.ViewModels;           // PagedResult<T>
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Xunit;
-using System.Collections.Generic;
 
-namespace Fiap.Web.ESG2.Test
+namespace Fiap.Web.ESG2.Tests
 {
-    public class UsuarioControllerTest
+    public class UsuariosControllerTest
     {
         [Fact]
-        public void Get_ReturnsOkResult()
+        public async Task Get_ReturnsOkWithPagedResult()
         {
             // Arrange
-            var mockService = new Mock<IUsuarioService>();
-            mockService.Setup(service => service.ListarUsuarios())
-                .Returns(new List<UsuarioModel>());
+            var mockSvc = new Mock<IUsuarioService>();
+            var paged = new PagedResult<UsuarioModel>
+            {
+                Page = 1,
+                PageSize = 10,
+                TotalItems = 0,
+                Items = new List<UsuarioModel>()
+            };
 
-            var mockMapper = new Mock<IMapper>();
-            mockMapper.Setup(mapper => mapper.Map<IEnumerable<UsuarioViewModel>>(It.IsAny<IEnumerable<UsuarioModel>>()))
-                .Returns(new List<UsuarioViewModel>());
+            mockSvc
+                .Setup(s => s.GetPagedAsync(1, 10, It.IsAny<CancellationToken>()))
+                .ReturnsAsync(paged);
 
-            var controller = new UsuarioController(mockService.Object, mockMapper.Object);
+            var controller = new UsuariosController(mockSvc.Object);
 
             // Act
-            var result = controller.Get();
+            var result = await controller.Get(page: 1, pageSize: 10, ct: CancellationToken.None);
 
             // Assert
-            Assert.IsType<OkObjectResult>(result.Result);
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            var value = Assert.IsType<PagedResult<UsuarioModel>>(ok.Value);
+            Assert.Equal(0, value.TotalItems);
+            Assert.Equal(1, value.Page);
+            Assert.Equal(10, value.PageSize);
         }
     }
 }
