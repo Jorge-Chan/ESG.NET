@@ -1,4 +1,4 @@
-name: CI/CD - ACR → Azure Web App (staging/prod por branch)
+name: CI/CD - ACR → Azure Web App (staging/prod por branch)  #v10
 
 on:
   push:
