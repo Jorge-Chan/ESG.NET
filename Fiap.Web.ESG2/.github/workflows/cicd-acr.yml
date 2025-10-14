@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "main" ]          # Deploy automático no STAGING
     tags:
-      - "prod-*"                  # Promoção para PROD via tag
+      - "prod-*"
   workflow_dispatch:
     inputs:
       target:
@@ -15,14 +15,18 @@ on:
 env:
   ACR_NAME: esgregistry2
   ACR_LOGIN_SERVER: esgregistry2.azurecr.io
-  IMAGE_REPO: fiap-web-esg2        # <— como você quer chamar o repositório no ACR
+  IMAGE_REPO: fiap-web-esg2           # nome do repo no ACR
   DOTNET_VERSION: "8.0.x"
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
 
 jobs:
   ci:
     name: Build & Test (.NET) + Push ACR
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,7 +61,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: ACR login (az acr login)
+      - name: ACR login
         run: az acr login --name ${{ env.ACR_NAME }}
 
       - name: Set up Docker Buildx
@@ -87,18 +91,16 @@ jobs:
     if: |
       (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
-
     steps:
       - name: Azure login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Define a imagem do container no Web App (puxando do ACR com MI que já tem AcrPull)
       - name: Deploy to Azure Web App (Staging)
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME_STG }}
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME_STG }}   # ex: fiap-esg2-stg
           images: ${{ needs.ci.outputs.commit_tag }}
 
   deploy_prod:
@@ -108,14 +110,13 @@ jobs:
     if: |
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/prod-')) ||
       (github.event_name == 'workflow_dispatch' && inputs.target == 'prod')
-
     steps:
       - name: Azure login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Pull & retag as :prod
+      - name: Retag commit as :prod in ACR
         run: |
           az acr login --name ${{ env.ACR_NAME }}
           docker pull ${{ needs.ci.outputs.commit_tag }}
@@ -125,5 +126,5 @@ jobs:
       - name: Deploy to Azure Web App (Prod)
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME_PRD }}
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME_PRD }}  # ex: fiap-esg2-prod
           images: ${{ needs.ci.outputs.prod_tag }}
