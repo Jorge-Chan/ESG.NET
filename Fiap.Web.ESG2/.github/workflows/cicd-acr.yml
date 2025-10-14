@@ -16,6 +16,9 @@ env:
   IMAGE_REPO: fiap-web-esg2
   # Pasta de pacotes NuGet dentro do workspace (sem /root)
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+  DOTNET_CLI_HOME: ${{ github.workspace }}/.dotnet
+  XDG_CONFIG_HOME: ${{ github.workspace }}/.config
+  XDG_DATA_HOME: ${{ github.workspace }}/.local/share
 
 permissions:
   contents: read
@@ -30,12 +33,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Se tiver global.json, use este bloco:
+      # Instala .NET conforme seu global.json (ou troque para dotnet-version: 8.0.x)
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: ./global.json
-     
+
+      # Cache de pacotes NuGet (no workspace)
       - name: Cache NuGet
         uses: actions/cache@v4
         with:
@@ -44,15 +48,61 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
-    
-      - name: Restore (NuGet.config + pasta local de pacotes)
-        run: dotnet restore ESG.NET/ESG.NET/Fiap.Web.ESG2.sln --configfile ./NuGet.config --packages "$NUGET_PACKAGES"
+      # Diagnóstico (opcional — pode remover depois)
+      - name: Diagnóstico de ambiente
+        run: |
+          echo "HOME=$HOME"
+          echo "NUGET_PACKAGES=$NUGET_PACKAGES"
+          echo "DOTNET_CLI_HOME=$DOTNET_CLI_HOME"
+          dotnet --info
+          echo "=== NuGet locals ==="
+          dotnet nuget locals all -l || true
+
+      # RESTORE com config inline (sem /root) e 3 camadas de override
+      - name: Restore (forçando pasta de pacotes)
+        env:
+          SLN_PATH: ESG.NET/ESG.NET/Fiap.Web.ESG2.sln
+        run: |
+          mkdir -p "$NUGET_PACKAGES"
+          cat > ./NuGet.inline.config <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <clear />
+              <add key="nuget" value="https://api.nuget.org/v3/index.json" />
+            </packageSources>
+            <fallbackPackageFolders>
+              <clear />
+            </fallbackPackageFolders>
+            <!-- sem globalPackagesFolder -->
+          </configuration>
+          XML
+
+          echo "NUGET_PACKAGES=$NUGET_PACKAGES"
+          dotnet restore "$SLN_PATH" \
+            --configfile ./NuGet.inline.config \
+            --packages "$NUGET_PACKAGES" \
+            -p:RestorePackagesPath="$NUGET_PACKAGES" \
+            --verbosity minimal
 
       - name: Build
-        run: dotnet build ESG.NET/ESG.NET/Fiap.Web.ESG2.sln --configuration Release --no-restore
+        env:
+          SLN_PATH: ESG.NET/ESG.NET/Fiap.Web.ESG2.sln
+        run: |
+          dotnet build "$SLN_PATH" \
+            --configuration Release \
+            --no-restore \
+            -p:RestorePackagesPath="$NUGET_PACKAGES"
 
       - name: Test
-        run: dotnet test ESG.NET/ESG.NET/Fiap.Web.ESG2.sln --configuration Release --no-build --verbosity normal
+        env:
+          SLN_PATH: ESG.NET/ESG.NET/Fiap.Web.ESG2.sln
+        run: |
+          dotnet test "$SLN_PATH" \
+            --configuration Release \
+            --no-build \
+            -p:RestorePackagesPath="$NUGET_PACKAGES" \
+            --verbosity normal
 
       - name: Extract short SHA
         id: vars
@@ -129,9 +179,8 @@ jobs:
       - name: Deploy to Azure Web App (Staging)
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME_STG }}   
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME_STG }}
           images: ${{ needs.ci.outputs.commit_tag }}
-        
 
   deploy_prod:
     name: Deploy PROD
@@ -154,5 +203,5 @@ jobs:
       - name: Deploy to Azure Web App (Prod)
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME_PRD }}  
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME_PRD }}
           images: ${{ needs.ci.outputs.prod_tag }}
