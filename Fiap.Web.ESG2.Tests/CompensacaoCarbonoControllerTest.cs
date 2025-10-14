@@ -25,8 +25,8 @@ namespace Fiap.Web.ESG2.Test
 
             var controller = new CompensacaoCarbonoController(mockService.Object, mockMapper.Object);
 
-            // Act
-            var result = controller.Get();
+            // Act (sem await – método é síncrono)
+            var result = controller.Get(1, 10);
 
             // Assert
             var ok = Assert.IsType<OkObjectResult>(result.Result);
