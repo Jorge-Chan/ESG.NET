@@ -38,6 +38,8 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: ./global.json
+          # Se não tiver global.json, use:
+          # dotnet-version: 8.0.x
 
       # Cache de pacotes NuGet (no workspace)
       - name: Cache NuGet
@@ -48,6 +50,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
+      # Garante que é este workflow que está rodando (útil para detectar YAML antigo)
+      - name: Assert workflow identity
+        run: |
+          echo "GITHUB_WORKFLOW_REF=$GITHUB_WORKFLOW_REF"
+          echo "WORKFLOW NAME=$GITHUB_WORKFLOW"
+
       # Diagnóstico (opcional — pode remover depois)
       - name: Diagnóstico de ambiente
         run: |
@@ -57,6 +65,8 @@ jobs:
           dotnet --info
           echo "=== NuGet locals ==="
           dotnet nuget locals all -l || true
+          echo "=== NuGet.Config no repo ==="
+          find . -iname "NuGet.Config" -o -iname "nuget.config" -print
 
       # RESTORE com config inline (sem /root) e 3 camadas de override
       - name: Restore (forçando pasta de pacotes)
