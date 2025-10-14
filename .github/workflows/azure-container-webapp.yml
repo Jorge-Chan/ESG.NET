@@ -29,19 +29,23 @@ jobs:
   ci:
     name: Build & Test (.NET) + Push ACR
     runs-on: ubuntu-latest
+    env:
+      ACR_NAME: esgregistry2
+      ACR_LOGIN_SERVER: esgregistry2.azurecr.io
+      IMAGE_REPO: fiap-web-esg2
+      DOTNET_CLI_HOME: ${{ github.workspace }}/.dotnet
+      XDG_CONFIG_HOME: ${{ github.workspace }}/.config
+      XDG_DATA_HOME: ${{ github.workspace }}/.local/share
+      NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Instala .NET conforme seu global.json (ou troque para dotnet-version: 8.0.x)
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: ./global.json
-          # Se não tiver global.json, use:
-          # dotnet-version: 8.0.x
 
-      # Cache de pacotes NuGet (no workspace)
       - name: Cache NuGet
         uses: actions/cache@v4
         with:
@@ -50,68 +54,28 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
-      # Garante que é este workflow que está rodando (útil para detectar YAML antigo)
-      - name: Assert workflow identity
-        run: |
-          echo "GITHUB_WORKFLOW_REF=$GITHUB_WORKFLOW_REF"
-          echo "WORKFLOW NAME=$GITHUB_WORKFLOW"
+      - name: Prepare NuGet directory
+        run: mkdir -p "${{ env.NUGET_PACKAGES }}"
 
-      # Diagnóstico (opcional — pode remover depois)
-      - name: Diagnóstico de ambiente
+      - name: Restore packages
         run: |
-          echo "HOME=$HOME"
-          echo "NUGET_PACKAGES=$NUGET_PACKAGES"
-          echo "DOTNET_CLI_HOME=$DOTNET_CLI_HOME"
-          dotnet --info
-          echo "=== NuGet locals ==="
-          dotnet nuget locals all -l || true
-          echo "=== NuGet.Config no repo ==="
-          find . -iname "NuGet.Config" -o -iname "nuget.config" -print
-
-      # RESTORE com config inline (sem /root) e 3 camadas de override
-      - name: Restore (forçando pasta de pacotes)
-        env:
-          SLN_PATH: ESG.NET/ESG.NET/Fiap.Web.ESG2.sln
-        run: |
-          mkdir -p "$NUGET_PACKAGES"
-          cat > ./NuGet.inline.config <<'XML'
-          <?xml version="1.0" encoding="utf-8"?>
-          <configuration>
-            <packageSources>
-              <clear />
-              <add key="nuget" value="https://api.nuget.org/v3/index.json" />
-            </packageSources>
-            <fallbackPackageFolders>
-              <clear />
-            </fallbackPackageFolders>
-            <!-- sem globalPackagesFolder -->
-          </configuration>
-          XML
-
-          echo "NUGET_PACKAGES=$NUGET_PACKAGES"
-          dotnet restore "$SLN_PATH" \
-            --configfile ./NuGet.inline.config \
-            --packages "$NUGET_PACKAGES" \
-            -p:RestorePackagesPath="$NUGET_PACKAGES" \
-            --verbosity minimal
+          dotnet restore ESG.NET/ESG.NET/Fiap.Web.ESG2.sln \
+            --packages "${{ env.NUGET_PACKAGES }}" \
+            -p:RestorePackagesPath="${{ env.NUGET_PACKAGES }}"
 
       - name: Build
-        env:
-          SLN_PATH: ESG.NET/ESG.NET/Fiap.Web.ESG2.sln
         run: |
-          dotnet build "$SLN_PATH" \
+          dotnet build ESG.NET/ESG.NET/Fiap.Web.ESG2.sln \
             --configuration Release \
             --no-restore \
-            -p:RestorePackagesPath="$NUGET_PACKAGES"
+            -p:RestorePackagesPath="${{ env.NUGET_PACKAGES }}"
 
       - name: Test
-        env:
-          SLN_PATH: ESG.NET/ESG.NET/Fiap.Web.ESG2.sln
         run: |
-          dotnet test "$SLN_PATH" \
+          dotnet test ESG.NET/ESG.NET/Fiap.Web.ESG2.sln \
             --configuration Release \
             --no-build \
-            -p:RestorePackagesPath="$NUGET_PACKAGES" \
+            -p:RestorePackagesPath="${{ env.NUGET_PACKAGES }}" \
             --verbosity normal
 
       - name: Extract short SHA
