@@ -1,4 +1,4 @@
-name: CI/CD - ACR → Azure Web App (staging/prod por branch)  #v10
+name: CI/CD - ACR → Azure Web App (staging/prod por branch) #11
 
 on:
   push:
@@ -18,7 +18,7 @@ env:
   DOTNET_CLI_HOME: ${{ github.workspace }}/.dotnet
   XDG_CONFIG_HOME: ${{ github.workspace }}/.config
   XDG_DATA_HOME: ${{ github.workspace }}/.local/share
-  HOME: ${{ github.workspace }}   # evita ~/.nuget do runner
+  HOME: ${{ github.workspace }}
 
 permissions:
   contents: read
@@ -33,7 +33,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Instala .NET 8 (sem global.json)
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -58,15 +57,15 @@ jobs:
           echo "NUGET_PACKAGES=$NUGET_PACKAGES"
           echo "DOTNET_CLI_HOME=$DOTNET_CLI_HOME"
           dotnet --info
+          echo "=== .sln encontrados ==="
+          find . -type f -name "*.sln"
           echo "=== NuGet locals ==="
           dotnet nuget locals all -l || true
-          echo "=== NuGet.Config no repo ==="
-          find . -iname "NuGet.Config" -o -iname "nuget.config" -print
 
-      # RESTORE com config inline (sem /root) e 3 camadas de override
+      # RESTORE com config inline (e 3 camadas de override)
       - name: Restore (forçando pasta de pacotes)
         env:
-          SLN_PATH: ESG.NET/ESG.NET/Fiap.Web.ESG2.sln
+          SLN_PATH: Fiap.Web.ESG2.sln   # <<<<<<  RAIZ DO REPO
         run: |
           mkdir -p "$NUGET_PACKAGES"
           cat > ./NuGet.inline.config <<'XML'
@@ -79,7 +78,6 @@ jobs:
             <fallbackPackageFolders>
               <clear />
             </fallbackPackageFolders>
-            <!-- sem globalPackagesFolder -->
           </configuration>
           XML
 
@@ -92,7 +90,7 @@ jobs:
 
       - name: Build
         env:
-          SLN_PATH: ESG.NET/ESG.NET/Fiap.Web.ESG2.sln
+          SLN_PATH: Fiap.Web.ESG2.sln   # <<<<<<  RAIZ
         run: |
           dotnet build "$SLN_PATH" \
             --configuration Release \
@@ -101,7 +99,7 @@ jobs:
 
       - name: Test
         env:
-          SLN_PATH: ESG.NET/ESG.NET/Fiap.Web.ESG2.sln
+          SLN_PATH: Fiap.Web.ESG2.sln   # <<<<<<  RAIZ
         run: |
           dotnet test "$SLN_PATH" \
             --configuration Release \
