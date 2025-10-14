@@ -19,8 +19,6 @@ env:
   DOTNET_CLI_HOME: ${{ github.workspace }}/.dotnet
   XDG_CONFIG_HOME: ${{ github.workspace }}/.config
   XDG_DATA_HOME: ${{ github.workspace }}/.local/share
-  # opcional, ajuda a evitar uso de ~/.nuget do runner
-  HOME: ${{ github.workspace }}
 
 permissions:
   contents: read
@@ -35,11 +33,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Instala .NET 8
+      # Instala .NET conforme seu global.json (ou troque para dotnet-version: 8.0.x)
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          global-json-file: ./global.json
+          # Se não tiver global.json, use:
+          # dotnet-version: 8.0.x
 
       # Cache de pacotes NuGet (no workspace)
       - name: Cache NuGet
