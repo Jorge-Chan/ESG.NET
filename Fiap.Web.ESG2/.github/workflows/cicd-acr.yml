@@ -14,7 +14,7 @@ env:
   ACR_NAME: esgregistry2
   ACR_LOGIN_SERVER: esgregistry2.azurecr.io
   IMAGE_REPO: fiap-web-esg2
-  DOTNET_VERSION: "8.0.x"
+  NUGET_PACKAGES: ${{ github.workspace }}/nuget-packages
 
 permissions:
   contents: read
@@ -29,13 +29,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Se tiver global.json, use este bloco:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          global-json-file: ./global.json
+      # Caso não tenha global.json, troque pelo abaixo:
+      # - name: Setup .NET
+      #   uses: actions/setup-dotnet@v4
+      #   with:
+      #     dotnet-version: |
+      #       8.0.x
+      #       9.0.x
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
 
       - name: Restore (com diretório customizado)
-        run: dotnet restore --packages ./nuget-packages
+        run: dotnet restore --packages "${{ env.NUGET_PACKAGES }}"
 
       - name: Build
         run: dotnet build --configuration Release --no-restore
@@ -54,7 +70,6 @@ jobs:
           echo "latest_tag=${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_REPO }}:latest" >> $GITHUB_OUTPUT
           echo "prod_tag=${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_REPO }}:prod" >> $GITHUB_OUTPUT
 
-      # Debug: localizar Dockerfile
       - name: Debug - listar arquivos
         run: |
           pwd
@@ -62,7 +77,6 @@ jobs:
           echo "---- até 3 níveis ----"
           find . -maxdepth 3 -type f -iname "*dockerfile*" -print
 
-      # Detecta caminho do Dockerfile
       - name: Detect Dockerfile path
         id: dpath
         shell: bash
@@ -122,6 +136,10 @@ jobs:
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME_STG }}   # ex: fiap-esg2-stg
           images: ${{ needs.ci.outputs.commit_tag }}
+          # Se usar admin user do ACR, descomente e preencha:
+          # registry-url: https://${{ env.ACR_LOGIN_SERVER }}
+          # registry-username: ${{ secrets.ACR_USERNAME }}
+          # registry-password: ${{ secrets.ACR_PASSWORD }}
 
   deploy_prod:
     name: Deploy PROD
@@ -134,8 +152,6 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-
-      # Promove a mesma imagem do commit para a tag fixa :prod (útil para rastrear a versão ativa)
       - name: Retag commit as :prod in ACR
         run: |
           az acr login --name ${{ env.ACR_NAME }}
@@ -147,4 +163,8 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME_PRD }}  # ex: fiap-esg2-prod
-          images: ${{ needs.ci.outputs.prod_tag }}        # sempre usa a tag fixa :prod
+          images: ${{ needs.ci.outputs.prod_tag }}
+          # Se usar admin user do ACR, descomente e preencha:
+          # registry-url: https://${{ env.ACR_LOGIN_SERVER }}
+          # registry-username: ${{ secrets.ACR_USERNAME }}
+          # registry-password: ${{ secrets.ACR_PASSWORD }}
