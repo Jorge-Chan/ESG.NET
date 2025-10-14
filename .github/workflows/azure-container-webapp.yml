@@ -14,7 +14,8 @@ env:
   ACR_NAME: esgregistry2
   ACR_LOGIN_SERVER: esgregistry2.azurecr.io
   IMAGE_REPO: fiap-web-esg2
-  NUGET_PACKAGES: ${{ github.workspace }}/nuget-packages
+  # Pasta de pacotes NuGet dentro do workspace (sem /root)
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
 
 permissions:
   contents: read
@@ -34,14 +35,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: ./global.json
-      # Caso não tenha global.json, troque pelo abaixo:
-      # - name: Setup .NET
-      #   uses: actions/setup-dotnet@v4
-      #   with:
-      #     dotnet-version: |
-      #       8.0.x
-      #       9.0.x
-
+     
       - name: Cache NuGet
         uses: actions/cache@v4
         with:
@@ -50,14 +44,15 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
-      - name: Restore (com diretório customizado)
-        run: dotnet restore --packages "${{ env.NUGET_PACKAGES }}"
+    
+      - name: Restore (NuGet.config + pasta local de pacotes)
+        run: dotnet restore ESG.NET/ESG.NET/Fiap.Web.ESG2.sln --configfile ./NuGet.config --packages "$NUGET_PACKAGES"
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build ESG.NET/ESG.NET/Fiap.Web.ESG2.sln --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test --configuration Release --no-build --verbosity normal
+        run: dotnet test ESG.NET/ESG.NET/Fiap.Web.ESG2.sln --configuration Release --no-build --verbosity normal
 
       - name: Extract short SHA
         id: vars
@@ -134,12 +129,9 @@ jobs:
       - name: Deploy to Azure Web App (Staging)
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME_STG }}   # ex: fiap-esg2-stg
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME_STG }}   
           images: ${{ needs.ci.outputs.commit_tag }}
-          # Se usar admin user do ACR, descomente e preencha:
-          # registry-url: https://${{ env.ACR_LOGIN_SERVER }}
-          # registry-username: ${{ secrets.ACR_USERNAME }}
-          # registry-password: ${{ secrets.ACR_PASSWORD }}
+        
 
   deploy_prod:
     name: Deploy PROD
@@ -162,9 +154,5 @@ jobs:
       - name: Deploy to Azure Web App (Prod)
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME_PRD }}  # ex: fiap-esg2-prod
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME_PRD }}  
           images: ${{ needs.ci.outputs.prod_tag }}
-          # Se usar admin user do ACR, descomente e preencha:
-          # registry-url: https://${{ env.ACR_LOGIN_SERVER }}
-          # registry-username: ${{ secrets.ACR_USERNAME }}
-          # registry-password: ${{ secrets.ACR_PASSWORD }}
