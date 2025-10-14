@@ -1,10 +1,8 @@
-name: CI/CD - ACR → Azure Web App
+name: CI/CD - ACR → Azure Web App (staging/prod por branch)
 
 on:
   push:
-    branches: [ "main" ]          # deploy automático no STAGING
-    tags:
-      - "prod-*"                  # promoção para PROD via tag
+    branches: [ "staging", "prod" ]     # ← duas branches fixas
   workflow_dispatch:
     inputs:
       target:
@@ -13,15 +11,10 @@ on:
         default: "staging"
 
 env:
-  # ====== ajuste estes valores ======
   ACR_NAME: esgregistry2
   ACR_LOGIN_SERVER: esgregistry2.azurecr.io
-  IMAGE_REPO: fiap-web-esg2                 # nome do repositório dentro do ACR
-  DOTNET_VERSION: "8.0.x"
-  # Se seu Dockerfile estiver em outro caminho, ajuste as 2 linhas abaixo:
-  DOCKER_CONTEXT: ./Fiap.Web.ESG2
-  DOCKERFILE_PATH: ./Fiap.Web.ESG2/Dockerfile
-  # ==================================
+  IMAGE_REPO: fiap-web-esg2
+  NUGET_PACKAGES: ${{ github.workspace }}/nuget-packages
 
 permissions:
   contents: read
@@ -30,20 +23,35 @@ permissions:
 
 jobs:
   ci:
-    name: Build & Test (.NET) + Push to ACR
+    name: Build & Test (.NET) + Push ACR
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Se tiver global.json, use este bloco:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+          global-json-file: ./global.json
+      # Caso não tenha global.json, troque pelo abaixo:
+      # - name: Setup .NET
+      #   uses: actions/setup-dotnet@v4
+      #   with:
+      #     dotnet-version: |
+      #       8.0.x
+      #       9.0.x
 
-      - name: Restore
-        run: dotnet restore
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore (com diretório customizado)
+        run: dotnet restore --packages "${{ env.NUGET_PACKAGES }}"
 
       - name: Build
         run: dotnet build --configuration Release --no-restore
@@ -62,6 +70,28 @@ jobs:
           echo "latest_tag=${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_REPO }}:latest" >> $GITHUB_OUTPUT
           echo "prod_tag=${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_REPO }}:prod" >> $GITHUB_OUTPUT
 
+      - name: Debug - listar arquivos
+        run: |
+          pwd
+          ls -la
+          echo "---- até 3 níveis ----"
+          find . -maxdepth 3 -type f -iname "*dockerfile*" -print
+
+      - name: Detect Dockerfile path
+        id: dpath
+        shell: bash
+        run: |
+          if [ -f "./Dockerfile" ]; then
+            echo "context=." >> $GITHUB_OUTPUT
+            echo "file=./Dockerfile" >> $GITHUB_OUTPUT
+          elif [ -f "./Fiap.Web.ESG2/Dockerfile" ]; then
+            echo "context=./Fiap.Web.ESG2" >> $GITHUB_OUTPUT
+            echo "file=./Fiap.Web.ESG2/Dockerfile" >> $GITHUB_OUTPUT
+          else
+            echo "Nenhum Dockerfile encontrado nos caminhos esperados." >&2
+            exit 1
+          fi
+
       - name: Azure login (Service Principal)
         uses: azure/login@v2
         with:
@@ -76,8 +106,8 @@ jobs:
       - name: Build & Push to ACR (commit + latest)
         uses: docker/build-push-action@v6
         with:
-          context: ${{ env.DOCKER_CONTEXT }}
-          file: ${{ env.DOCKERFILE_PATH }}
+          context: ${{ steps.dpath.outputs.context }}
+          file: ${{ steps.dpath.outputs.file }}
           push: true
           tags: |
             ${{ steps.tags.outputs.commit_tag }}
@@ -91,13 +121,10 @@ jobs:
       prod_tag: ${{ steps.tags.outputs.prod_tag }}
 
   deploy_staging:
-    name: Deploy STAGING (Web App for Containers)
+    name: Deploy STAGING
     needs: [ci]
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
-
+    if: github.ref == 'refs/heads/staging' || (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
     steps:
       - name: Azure login
         uses: azure/login@v2
@@ -109,15 +136,16 @@ jobs:
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME_STG }}   # ex: fiap-esg2-stg
           images: ${{ needs.ci.outputs.commit_tag }}
+          # Se usar admin user do ACR, descomente e preencha:
+          # registry-url: https://${{ env.ACR_LOGIN_SERVER }}
+          # registry-username: ${{ secrets.ACR_USERNAME }}
+          # registry-password: ${{ secrets.ACR_PASSWORD }}
 
   deploy_prod:
-    name: Deploy PROD (Web App for Containers)
+    name: Deploy PROD
     needs: [ci]
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/prod-')) ||
-      (github.event_name == 'workflow_dispatch' && inputs.target == 'prod')
-
+    if: github.ref == 'refs/heads/prod' || (github.event_name == 'workflow_dispatch' && inputs.target == 'prod')
     steps:
       - name: Azure login
         uses: azure/login@v2
@@ -136,3 +164,7 @@ jobs:
         with:
           app-name: ${{ secrets.AZURE_WEBAPP_NAME_PRD }}  # ex: fiap-esg2-prod
           images: ${{ needs.ci.outputs.prod_tag }}
+          # Se usar admin user do ACR, descomente e preencha:
+          # registry-url: https://${{ env.ACR_LOGIN_SERVER }}
+          # registry-username: ${{ secrets.ACR_USERNAME }}
+          # registry-password: ${{ secrets.ACR_PASSWORD }}
