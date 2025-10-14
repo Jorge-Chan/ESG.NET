@@ -1,10 +1,8 @@
-﻿name: CI/CD - ACR → Azure Web App
+﻿name: CI/CD - ACR → Azure Web App (staging/prod por branch)
 
 on:
   push:
-    branches: [ "main" ]
-    tags:
-      - "prod-*"
+    branches: [ "staging", "prod" ]     # ← duas branches fixas
   workflow_dispatch:
     inputs:
       target:
@@ -27,7 +25,6 @@ jobs:
   ci:
     name: Build & Test (.NET) + Push ACR
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,7 +54,7 @@ jobs:
           echo "latest_tag=${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_REPO }}:latest" >> $GITHUB_OUTPUT
           echo "prod_tag=${{ env.ACR_LOGIN_SERVER }}/${{ env.IMAGE_REPO }}:prod" >> $GITHUB_OUTPUT
 
-      # 🔎 Debug para ver onde está o Dockerfile
+      # Debug: localizar Dockerfile
       - name: Debug - listar arquivos
         run: |
           pwd
@@ -65,7 +62,7 @@ jobs:
           echo "---- até 3 níveis ----"
           find . -maxdepth 3 -type f -iname "*dockerfile*" -print
 
-      # 🔧 Detecta automaticamente o caminho do Dockerfile e do contexto
+      # Detecta caminho do Dockerfile
       - name: Detect Dockerfile path
         id: dpath
         shell: bash
@@ -110,13 +107,10 @@ jobs:
       prod_tag: ${{ steps.tags.outputs.prod_tag }}
 
   deploy_staging:
-    name: Deploy STAGING (Web App for Containers)
+    name: Deploy STAGING
     needs: [ci]
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
-
+    if: github.ref == 'refs/heads/staging' || (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
     steps:
       - name: Azure login
         uses: azure/login@v2
@@ -126,23 +120,21 @@ jobs:
       - name: Deploy to Azure Web App (Staging)
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME_STG }}
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME_STG }}   # ex: fiap-esg2-stg
           images: ${{ needs.ci.outputs.commit_tag }}
 
   deploy_prod:
-    name: Deploy PROD (Web App for Containers)
+    name: Deploy PROD
     needs: [ci]
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/prod-')) ||
-      (github.event_name == 'workflow_dispatch' && inputs.target == 'prod')
-
+    if: github.ref == 'refs/heads/prod' || (github.event_name == 'workflow_dispatch' && inputs.target == 'prod')
     steps:
       - name: Azure login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # Promove a mesma imagem do commit para a tag fixa :prod (útil para rastrear a versão ativa)
       - name: Retag commit as :prod in ACR
         run: |
           az acr login --name ${{ env.ACR_NAME }}
@@ -153,5 +145,5 @@ jobs:
       - name: Deploy to Azure Web App (Prod)
         uses: azure/webapps-deploy@v3
         with:
-          app-name: ${{ secrets.AZURE_WEBAPP_NAME_PRD }}
-          images: ${{ needs.ci.outputs.prod_tag }}
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME_PRD }}  # ex: fiap-esg2-prod
+          images: ${{ needs.ci.outputs.prod_tag }}        # sempre usa a tag fixa :prod
