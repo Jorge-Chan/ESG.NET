@@ -1,3 +1,5 @@
+ï»¿version: "3.9"
+
 networks:
   esg-net:
 
@@ -19,17 +21,18 @@ services:
       - esg-net
     volumes:
       - oracle-data:/opt/oracle/oradata
-    # A imagem já tem HEALTHCHECK embutido
+    # A imagem jï¿½ inclui HEALTHCHECK, entï¿½o o depends_on abaixo funciona
 
   api:
+    image: fiap-web-esg2                           # opcional, ï¿½til pra taguear a imagem
     build:
-      context: ./Fiap.Web.ESG2
+      context: ./Fiap.Web.ESG2                     # ? contexto = pasta do PROJETO
       dockerfile: Dockerfile
     container_name: esg-api
     restart: unless-stopped
     depends_on:
       db:
-        condition: service_healthy
+        condition: service_healthy                 # espera o Oracle ficar healthy
     ports:
       - "8080:8080"
     environment:
@@ -38,7 +41,8 @@ services:
       Jwt__Issuer: Fiap.Web.ESG2
       Jwt__Audience: Fiap.Web.ESG2.Client
       Jwt__Key: ${JWT_KEY:-dev-super-secret-key}
-      # EASY CONNECT apontando para o PDB correto
+      # EASY CONNECT apontando para o PDB XEPDB1
       ConnectionStrings__DatabaseConnection: "User Id=${ORACLE_APP_USER:-ESGUSER};Password=${ORACLE_APP_PASS:-ESGPass123!};Data Source=db:1521/XEPDB1;"
     networks:
       - esg-net
+
