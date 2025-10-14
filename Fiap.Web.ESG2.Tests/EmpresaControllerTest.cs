@@ -14,21 +14,18 @@ namespace Fiap.Web.ESG2.Tests
         [Fact]
         public void Get_ReturnsOkResult()
         {
-            // Arrange
-            var mockService = new Mock<IEmpresaService>();
-            mockService.Setup(s => s.ListarEmpresas())
-                       .Returns(new List<EmpresaModel>());
+            var svc = new Mock<IEmpresaService>();
+            svc.Setup(s => s.ListarEmpresas())
+               .Returns(new List<EmpresaModel>());
 
-            var mockMapper = new Mock<AutoMapper.IMapper>();
-            mockMapper.Setup(m => m.Map<IEnumerable<EmpresaViewModel>>(It.IsAny<IEnumerable<EmpresaModel>>()))
-                      .Returns(new List<EmpresaViewModel>());
+            var mapper = new Mock<AutoMapper.IMapper>();
+            mapper.Setup(m => m.Map<IEnumerable<EmpresaViewModel>>(It.IsAny<IEnumerable<EmpresaModel>>()))
+                  .Returns(new List<EmpresaViewModel>());
 
-            var controller = new EmpresaController(mockService.Object, mockMapper.Object);
+            var controller = new EmpresaController(svc.Object, mapper.Object);
 
-            // Act (sem await – método é síncrono)
-            var result = controller.Get(1, 10);
+            var result = controller.Get();
 
-            // Assert
             var ok = Assert.IsType<OkObjectResult>(result.Result);
             Assert.IsAssignableFrom<IEnumerable<EmpresaViewModel>>(ok.Value);
         }

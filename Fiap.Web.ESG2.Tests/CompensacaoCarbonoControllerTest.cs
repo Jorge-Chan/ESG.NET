@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Xunit;
 
-namespace Fiap.Web.ESG2.Test
+namespace Fiap.Web.ESG2.Tests
 {
     public class CompensacaoCarbonoControllerTest
     {
@@ -15,18 +15,18 @@ namespace Fiap.Web.ESG2.Test
         public void Get_ReturnsOkResult()
         {
             // Arrange
-            var mockService = new Mock<ICompensacaoCarbonoService>();
-            mockService.Setup(s => s.ListarCompensacoes())
-                       .Returns(new List<CompensacaoCarbonoModel>());
+            var svc = new Mock<ICompensacaoCarbonoService>();
+            svc.Setup(s => s.ListarCompensacoes())
+               .Returns(new List<CompensacaoCarbonoModel>());
 
-            var mockMapper = new Mock<AutoMapper.IMapper>();
-            mockMapper.Setup(m => m.Map<IEnumerable<CompensacaoCarbonoViewModel>>(It.IsAny<IEnumerable<CompensacaoCarbonoModel>>()))
-                      .Returns(new List<CompensacaoCarbonoViewModel>());
+            var mapper = new Mock<AutoMapper.IMapper>();
+            mapper.Setup(m => m.Map<IEnumerable<CompensacaoCarbonoViewModel>>(It.IsAny<IEnumerable<CompensacaoCarbonoModel>>()))
+                  .Returns(new List<CompensacaoCarbonoViewModel>());
 
-            var controller = new CompensacaoCarbonoController(mockService.Object, mockMapper.Object);
+            var controller = new CompensacaoCarbonoController(svc.Object, mapper.Object);
 
-            // Act (sem await – método é síncrono)
-            var result = controller.Get(1, 10);
+            // Act (síncrono)
+            var result = controller.Get();
 
             // Assert
             var ok = Assert.IsType<OkObjectResult>(result.Result);
