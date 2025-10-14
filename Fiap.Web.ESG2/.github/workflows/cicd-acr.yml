@@ -34,8 +34,8 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Restore
-        run: dotnet restore
+      - name: Restore (com diretório customizado)
+        run: dotnet restore --packages ./nuget-packages
 
       - name: Build
         run: dotnet build --configuration Release --no-restore
@@ -133,6 +133,7 @@ jobs:
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
+
 
       # Promove a mesma imagem do commit para a tag fixa :prod (útil para rastrear a versão ativa)
       - name: Retag commit as :prod in ACR
