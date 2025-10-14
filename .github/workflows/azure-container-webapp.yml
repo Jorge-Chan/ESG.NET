@@ -2,7 +2,7 @@ name: CI/CD - ACR → Azure Web App (staging/prod por branch)
 
 on:
   push:
-    branches: [ "staging", "prod" ]
+    branches: [ "staging", "prod" ]     # ← duas branches fixas
   workflow_dispatch:
     inputs:
       target:
@@ -14,9 +14,8 @@ env:
   ACR_NAME: esgregistry2
   ACR_LOGIN_SERVER: esgregistry2.azurecr.io
   IMAGE_REPO: fiap-web-esg2
-  # Força cache NuGet dentro do workspace (NADA de /root)
+  # Pasta de pacotes NuGet dentro do workspace (sem /root)
   NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
-  # Evita que o dotnet use pastas de usuário do runner
   DOTNET_CLI_HOME: ${{ github.workspace }}/.dotnet
   XDG_CONFIG_HOME: ${{ github.workspace }}/.config
   XDG_DATA_HOME: ${{ github.workspace }}/.local/share
@@ -34,12 +33,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Instala .NET conforme seu global.json (ou troque para dotnet-version: 8.0.x)
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          # Se não tiver global.json, troque por: dotnet-version: 8.0.x
           global-json-file: ./global.json
 
+      # Cache de pacotes NuGet (no workspace)
       - name: Cache NuGet
         uses: actions/cache@v4
         with:
@@ -48,40 +48,57 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
-      # ——— Diagnóstico rápido ———
-      - name: Diagnóstico NuGet/Configs
+      # Diagnóstico (opcional — pode remover depois)
+      - name: Diagnóstico de ambiente
         run: |
           echo "HOME=$HOME"
           echo "NUGET_PACKAGES=$NUGET_PACKAGES"
           echo "DOTNET_CLI_HOME=$DOTNET_CLI_HOME"
           dotnet --info
-          echo "### dotnet nuget locals:"
+          echo "=== NuGet locals ==="
           dotnet nuget locals all -l || true
-          echo "### NuGet.Config encontrados no repo:"
-          find . -iname "NuGet.Config" -print
-          echo "### Conteúdo do ./NuGet.config (se existir):"
-          if [ -f ./NuGet.config ]; then sed -n '1,200p' ./NuGet.config; fi
 
-      # ——— Restore forçado (3 camadas) ———
+      # RESTORE com config inline (sem /root) e 3 camadas de override
       - name: Restore (forçando pasta de pacotes)
+        env:
+          SLN_PATH: ESG.NET/ESG.NET/Fiap.Web.ESG2.sln
         run: |
           mkdir -p "$NUGET_PACKAGES"
-          dotnet restore ESG.NET/ESG.NET/Fiap.Web.ESG2.sln \
-            --configfile ./NuGet.config \
+          cat > ./NuGet.inline.config <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <clear />
+              <add key="nuget" value="https://api.nuget.org/v3/index.json" />
+            </packageSources>
+            <fallbackPackageFolders>
+              <clear />
+            </fallbackPackageFolders>
+            <!-- sem globalPackagesFolder -->
+          </configuration>
+          XML
+
+          echo "NUGET_PACKAGES=$NUGET_PACKAGES"
+          dotnet restore "$SLN_PATH" \
+            --configfile ./NuGet.inline.config \
             --packages "$NUGET_PACKAGES" \
             -p:RestorePackagesPath="$NUGET_PACKAGES" \
             --verbosity minimal
 
       - name: Build
+        env:
+          SLN_PATH: ESG.NET/ESG.NET/Fiap.Web.ESG2.sln
         run: |
-          dotnet build ESG.NET/ESG.NET/Fiap.Web.ESG2.sln \
+          dotnet build "$SLN_PATH" \
             --configuration Release \
             --no-restore \
             -p:RestorePackagesPath="$NUGET_PACKAGES"
 
       - name: Test
+        env:
+          SLN_PATH: ESG.NET/ESG.NET/Fiap.Web.ESG2.sln
         run: |
-          dotnet test ESG.NET/ESG.NET/Fiap.Web.ESG2.sln \
+          dotnet test "$SLN_PATH" \
             --configuration Release \
             --no-build \
             -p:RestorePackagesPath="$NUGET_PACKAGES" \
