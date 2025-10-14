@@ -1,11 +1,10 @@
-﻿using AutoMapper;
+﻿using System.Collections.Generic;
 using Fiap.Web.ESG2.Controllers;
 using Fiap.Web.ESG2.Models;
 using Fiap.Web.ESG2.Services;
 using Fiap.Web.ESG2.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
-using System.Collections.Generic;
 using Xunit;
 
 namespace Fiap.Web.ESG2.Tests
@@ -17,12 +16,12 @@ namespace Fiap.Web.ESG2.Tests
         {
             // Arrange
             var mockService = new Mock<IEmpresaService>();
-            mockService.Setup(service => service.ListarEmpresas())
-                .Returns(new List<EmpresaModel>());
+            mockService.Setup(s => s.ListarEmpresas())
+                       .Returns(new List<EmpresaModel>());
 
-            var mockMapper = new Mock<IMapper>();
-            mockMapper.Setup(mapper => mapper.Map<IEnumerable<EmpresaViewModel>>(It.IsAny<IEnumerable<EmpresaModel>>()))
-                .Returns(new List<EmpresaViewModel>());
+            var mockMapper = new Mock<AutoMapper.IMapper>();
+            mockMapper.Setup(m => m.Map<IEnumerable<EmpresaViewModel>>(It.IsAny<IEnumerable<EmpresaModel>>()))
+                      .Returns(new List<EmpresaViewModel>());
 
             var controller = new EmpresaController(mockService.Object, mockMapper.Object);
 
@@ -30,7 +29,8 @@ namespace Fiap.Web.ESG2.Tests
             var result = controller.Get();
 
             // Assert
-            Assert.IsType<OkObjectResult>(result.Result);
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            Assert.IsAssignableFrom<IEnumerable<EmpresaViewModel>>(ok.Value);
         }
     }
 }

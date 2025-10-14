@@ -1,4 +1,4 @@
-﻿using AutoMapper;
+﻿using System.Collections.Generic;
 using Fiap.Web.ESG2.Controllers;
 using Fiap.Web.ESG2.Models;
 using Fiap.Web.ESG2.Services;
@@ -6,7 +6,6 @@ using Fiap.Web.ESG2.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Xunit;
-using System.Collections.Generic;
 
 namespace Fiap.Web.ESG2.Test
 {
@@ -17,12 +16,12 @@ namespace Fiap.Web.ESG2.Test
         {
             // Arrange
             var mockService = new Mock<IRelatorioEmissaoService>();
-            mockService.Setup(service => service.ListarRelatorios())
-                .Returns(new List<RelatorioEmissaoModel>());
+            mockService.Setup(s => s.ListarRelatorios())
+                       .Returns(new List<RelatorioEmissaoModel>());
 
-            var mockMapper = new Mock<IMapper>();
-            mockMapper.Setup(mapper => mapper.Map<IEnumerable<RelatorioEmissaoViewModel>>(It.IsAny<IEnumerable<RelatorioEmissaoModel>>()))
-                .Returns(new List<RelatorioEmissaoViewModel>());
+            var mockMapper = new Mock<AutoMapper.IMapper>();
+            mockMapper.Setup(m => m.Map<IEnumerable<RelatorioEmissaoViewModel>>(It.IsAny<IEnumerable<RelatorioEmissaoModel>>()))
+                      .Returns(new List<RelatorioEmissaoViewModel>());
 
             var controller = new RelatorioEmissaoController(mockService.Object, mockMapper.Object);
 
@@ -30,7 +29,8 @@ namespace Fiap.Web.ESG2.Test
             var result = controller.Get();
 
             // Assert
-            Assert.IsType<OkObjectResult>(result.Result);
+            var ok = Assert.IsType<OkObjectResult>(result.Result);
+            Assert.IsAssignableFrom<IEnumerable<RelatorioEmissaoViewModel>>(ok.Value);
         }
     }
 }
