@@ -111,11 +111,8 @@ Healthcheck HTTP: garante que a aplicação esteja respondendo corretamente.
 
 ## ?? Prints do Funcionamento
 
-### ?? Build & Push ACR
-![Build e Push ACR](WhatsApp%20Image%202025-10-14%20at%2022.14.14.jpeg)
-
-### ?? Deploy Staging
-![Deploy Staging](WhatsApp%20Image%202025-10-14%20at%2022.44.57.jpeg)
+![Build e Push ACR](images/WhatsApp%20Image%202025-10-14%20at%2022.14.14.jpeg)
+![Deploy Staging](images/WhatsApp%20Image%202025-10-14%20at%2022.44.57.jpeg)
 
 
 Tecnologias Utilizadas
